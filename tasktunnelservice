@@ -1,0 +1,73 @@
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides:          tasktunnel
+# Required-Start:    $local_fs $remote_fs $network $syslog
+# Required-Stop:     $local_fs $remote_fs $network $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start the task tunnel request
+### END INIT INFO
+
+TASKTUNPATH=/usr/local/tasktunnel
+
+# set -e
+. /lib/lsb/init-functions
+test -f /etc/default/rcS && . /etc/default/rcS
+
+task=$(echo "$@"|grep -Eo '(--task|-t)=[A-Za-z0-9_-]+'| grep -Eo '=[A-Za-z0-9_-]+'|grep -Eo '[A-Za-z0-9_-]+');
+[ -n "$task" ] && TASK=$task || TASK='default'
+TASKID=$(echo $task | md5sum |tr -d '[\- ]');
+
+case $1 in
+    start)
+        log_daemon_msg "Starting tunnel - wait for connection - for task: $TASK"
+        if [ -w $TASKTUNPATH/tasks ]; then
+          echo "$TASK" > $TASKTUNPATH/tasks/$TASKID.treq
+          chgrp admin $TASKTUNPATH/tasks/$TASKID.treq;
+          chmod g+w $TASKTUNPATH/tasks/$TASKID.treq
+          log_end_msg 0
+        else
+          log_end_msg 1
+          echo "Cannot write to $TASKTUNPATH/tasks. Are you root?"
+          exit 1;
+        fi
+    ;;
+    stop)
+        log_daemon_msg "Stopping tunnel for task: $TASK"
+        if [ -w $TASKTUNPATH/tasks ]; then
+          if [ -w $TASKTUNPATH/tasks/$TASKID.treq ]; then
+            rm $TASKTUNPATH/tasks/$TASKID.treq
+          else
+            log_end_msg 1
+            echo "Cannot write to $TASKTUNPATH/tasks. Are you root?"
+          fi
+          
+          if [ -w $TASKTUNPATH/tasks/$TASKID.tready ]; then
+            rm $TASKTUNPATH/tasks/$TASKID.tready
+            log_end_msg 0
+          else
+            log_end_msg 1
+            echo "Cannot write to $TASKTUNPATH/tasks. Are you root?"
+          fi
+        else
+          log_end_msg 1
+          echo "Cannot write to $TASKTUNPATH/tasks. Are you root?"
+          exit 1;
+        fi
+    ;;
+    status)
+        if [ -e $TASKTUNPATH/tasks/$TASKID.treq ] && [ -e $TASKTUNPATH/tasks/$TASKID.tready ]; then
+          echo "Open";
+          exit 0;
+        elif [ -e $TASKTUNPATH/tasks/$TASKID.treq ]; then 
+          echo "Waiting"
+          exit 0;
+        else
+          echo 'None';
+          exit 1;
+        fi
+    ;;
+    *)
+        log_failure_msg "Usage: /etc/init.d/ldap-tunnel {start|stop|status} -t=taskname"
+        exit 1
+esac
