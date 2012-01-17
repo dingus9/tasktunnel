@@ -31,7 +31,7 @@ let "j=$sectstart+1";
       sshopts=$(echo $cmd | grep -Eo '".*"' | sed s/\"$// |sed s/^\"//); #sed removes ""
       
       # Check for task then run command or pass
-      ssh $server "$TASKTUNPATH/$CLIENTSCRIPT --checkonly -t=$task";
+      ssh $server $sshopts "$TASKTUNPATH/$CLIENTSCRIPT --checkonly -t=$task";
       [ $? == 0 ] && ssh -f $sshopts $server "$TASKTUNPATH/$CLIENTSCRIPT -t=$task" || echo "No jobs for task: $task";
 
     fi
